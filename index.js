@@ -17,7 +17,7 @@ const corsOptions = {
 
 
   
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const uri = `mongodb+srv://${process.env.BD_USER}:${process.env.BD_PASS}@cluster0.66lxfzt.mongodb.net/?retryWrites=true&w=majority`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -51,7 +51,33 @@ async function run() {
         res.send(result)
 
     })
+    // get all Users 
+    app.get('/users', async(req,res)=>{
+      const result = await userCollection.find().toArray()
+      res.send(result)
+    })
 
+    // user to admin
+    app.patch('/users/admin/:id', async(req,res)=>{
+      const id = req.params.id;
+      const query = { _id : new ObjectId(id)}
+      const updateDoc = {
+        $set :{ role : 'admin'}
+      }
+      const result = await userCollection.updateOne(query, updateDoc);
+      res.send(result)
+    })
+
+    // user to instructor
+    app.patch('/users/instructor/:id', async(req,res)=>{
+      const id = req.params.id;
+      const query = { _id : new ObjectId(id)}
+      const updateDoc = {
+        $set :{ role : 'instructor'}
+      }
+      const result = await userCollection.updateOne(query, updateDoc);
+      res.send(result)
+    })
 
     // post all register classes
     app.post('/add-class', async(req,res)=>{
@@ -60,6 +86,21 @@ async function run() {
       const result = await classCollection.insertOne(classData)
       res.send(result)
     })
+    // get all classed
+    app.get('/classes', async(req,res)=>{
+      const result = await classCollection.find().toArray()
+      res.send(result)
+    })
+    // show instructor class
+    app.get('/classes/:email', async(req,res)=>{
+      const email = req.params.email;
+      const query = {email : email};
+      const result = await classCollection.find(query).toArray()
+      res.send(result)
+    })
+
+
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
