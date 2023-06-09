@@ -79,6 +79,18 @@ async function run() {
       res.send(result)
     })
 
+
+    // update class status
+    app.patch('/classes/update/:id', async(req,res)=>{
+      const id = req.params.id;
+      const query = {_id : new ObjectId(id)};
+      const updateDoc= { 
+        $set : {status : 'approved'}
+      }
+      const result = await classCollection.updateOne(query,updateDoc)
+      res.send(result)
+    })
+
     // post all register classes
     app.post('/add-class', async(req,res)=>{
       const classData = req.body;
