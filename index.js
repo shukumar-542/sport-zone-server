@@ -82,21 +82,21 @@ async function run() {
 
     })
     // booking class collection
-    app.post('/booking', async(req,res)=>{
+    app.post('/booking', async (req, res) => {
       const item = req.body;
       const result = await bookedClassCollection.insertOne(item);
       res.send(result)
     })
     //get  booking collection by email 
-    app.get('/booking', async(req,res)=>{
+    app.get('/booking', async (req, res) => {
       const email = req.query.email;
-      if(!email){
+      if (!email) {
         res.send([])
       }
-      const query = {email :email}
+      const query = { email: email }
       const result = await bookedClassCollection.find(query).toArray()
       res.send(result)
-    }) 
+    })
     // delete booked class
     app.delete('/booking/:id', async (req, res) => {
       const id = req.params.id;
@@ -104,15 +104,24 @@ async function run() {
       const result = await bookedClassCollection.deleteOne(query)
       res.send(result);
     })
+
+    // get all payment class by email
+    app.get('/payment/:email', async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const result = await paymentBookingCollection.find(query).toArray();
+      res.send(result)
+    })
+
     // get all Users 
     app.get('/users', async (req, res) => {
       const result = await userCollection.find().toArray()
       res.send(result)
     })
     // get user role
-    app.get('/users/:email', async(req,res)=>{
+    app.get('/users/:email', async (req, res) => {
       const email = req.params.email;
-      const query = {email : email};
+      const query = { email: email };
       const result = await userCollection.findOne(query);
       res.send(result)
     })
@@ -129,11 +138,11 @@ async function run() {
     })
 
     // check admin
-    app.get('/users/admin/:email', async(req,res)=>{
+    app.get('/users/admin/:email', async (req, res) => {
       const email = req.params.email;
-      const query = {email : email};
+      const query = { email: email };
       const user = await userCollection.findOne(query);
-      const result ={admin : user?.role === "admin"}
+      const result = { admin: user?.role === "admin" }
       res.send(result)
     })
 
@@ -169,7 +178,20 @@ async function run() {
       const result = await classCollection.updateOne(query, updateDoc)
       res.send(result)
     })
-    // 
+    // // deny classes feedback
+    app.patch('/classes/feedback/:id', async (req, res) => {
+      const id = req.params.id;
+      const feedback = req.body
+      const query = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          feedback: feedback
+        }
+      }
+      const result = await classCollection.updateOne(query, updateDoc);
+      res.send(result)
+
+    })
 
     // post all register classes
     app.post('/add-class', async (req, res) => {
@@ -193,33 +215,41 @@ async function run() {
 
 
     // create payment intent
-    app.post("/create-payment-intent",  async (req, res) => {
+    app.post("/create-payment-intent", async (req, res) => {
       const { price } = req.body;
-      if(price){
-        const amount= parseFloat(price) * 100;
+      if (price) {
+        const amount = parseFloat(price) * 100;
         // Create a PaymentIntent with the order amount and currency
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount: amount,
-        currency: "usd",
-        payment_method_types:['card'],
-      });
-      res.send({
-        clientSecret: paymentIntent.client_secret,
-      });
+        const paymentIntent = await stripe.paymentIntents.create({
+          amount: amount,
+          currency: "usd",
+          payment_method_types: ['card'],
+        });
+        res.send({
+          clientSecret: paymentIntent.client_secret,
+        });
       }
-    
-      
+
+
     });
 
 
     // saved booking info into database
-    app.post('/paymentBookings', async(req,res)=>{
+    app.post('/paymentBookings', async (req, res) => {
       const booking = req.body;
-      console.log(booking);
+      // console.log(booking);
       const result = await paymentBookingCollection.insertOne(booking);
-      const query = {_id : new ObjectId(booking._id)}
+      const query = { _id: new ObjectId(booking._id) }
+      const reduceQuery = { _id: new ObjectId(booking.classId) }
       const deleteResult = await bookedClassCollection.deleteOne(query)
-      res.send({result,deleteResult})
+      const reduceSeat = await classCollection.findOne(reduceQuery);
+      const newSeat = reduceSeat.seat - 1;
+      // console.log(newSeat);
+      const updateClassSeat = {
+        $set: { seat: newSeat }
+      }
+      const availableSeat = await classCollection.updateOne(reduceQuery,updateClassSeat)
+      res.send({ result, deleteResult ,availableSeat })
     })
 
 
