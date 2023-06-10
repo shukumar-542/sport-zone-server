@@ -215,9 +215,11 @@ async function run() {
     // saved booking info into database
     app.post('/paymentBookings', async(req,res)=>{
       const booking = req.body;
-      // console.log(room);
+      console.log(booking);
       const result = await paymentBookingCollection.insertOne(booking);
-      res.send(result)
+      const query = {_id : new ObjectId(booking._id)}
+      const deleteResult = await bookedClassCollection.deleteOne(query)
+      res.send({result,deleteResult})
     })
 
 
