@@ -54,6 +54,7 @@ async function run() {
 
     const userCollection = client.db('sportZone').collection('users');
     const classCollection = client.db('sportZone').collection('allClass');
+    const bookedClassCollection = client.db('sportZone').collection('bookedClass');
 
 
     app.post('/jwt', (req, res) => {
@@ -78,9 +79,32 @@ async function run() {
       res.send(result)
 
     })
+    // booking class collection
+    app.post('/booking', async(req,res)=>{
+      const item = req.body;
+      const result = await bookedClassCollection.insertOne(item);
+      res.send(result)
+    })
+    //get  booking collection by email 
+    app.get('/booking', async(req,res)=>{
+      const email = req.query.email;
+      if(!email){
+        res.send([])
+      }
+      const query = {email :email}
+      const result = await bookedClassCollection.find(query).toArray()
+      res.send(result)
+    }) 
     // get all Users 
     app.get('/users', async (req, res) => {
       const result = await userCollection.find().toArray()
+      res.send(result)
+    })
+    // get user role
+    app.get('/users/:email', async(req,res)=>{
+      const email = req.params.email;
+      const query = {email : email};
+      const result = await userCollection.findOne(query);
       res.send(result)
     })
 
@@ -126,6 +150,17 @@ async function run() {
       const result = await classCollection.updateOne(query, updateDoc)
       res.send(result)
     })
+
+    app.patch('/classes/deny/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: { status: 'deny' }
+      }
+      const result = await classCollection.updateOne(query, updateDoc)
+      res.send(result)
+    })
+    // 
 
     // post all register classes
     app.post('/add-class', async (req, res) => {
