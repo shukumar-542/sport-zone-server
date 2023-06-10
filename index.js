@@ -95,6 +95,13 @@ async function run() {
       const result = await bookedClassCollection.find(query).toArray()
       res.send(result)
     }) 
+    // delete booked class
+    app.delete('/booking/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) }
+      const result = await bookedClassCollection.deleteOne(query)
+      res.send(result);
+    })
     // get all Users 
     app.get('/users', async (req, res) => {
       const result = await userCollection.find().toArray()
