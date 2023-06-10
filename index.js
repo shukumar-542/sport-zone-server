@@ -3,6 +3,7 @@ const app = express()
 const cors = require('cors')
 require('dotenv').config()
 const jwt = require('jsonwebtoken');
+const stripe = require("stripe")(process.env.PAYMENT_SECRET_KEY);
 const port = process.env.PORT || 5000;
 
 
@@ -55,6 +56,7 @@ async function run() {
     const userCollection = client.db('sportZone').collection('users');
     const classCollection = client.db('sportZone').collection('allClass');
     const bookedClassCollection = client.db('sportZone').collection('bookedClass');
+    const paymentBookingCollection = client.db('sportZone').collection('payment');
 
 
     app.post('/jwt', (req, res) => {
@@ -186,6 +188,35 @@ async function run() {
       const email = req.params.email;
       const query = { email: email };
       const result = await classCollection.find(query).toArray()
+      res.send(result)
+    })
+
+
+    // create payment intent
+    app.post("/create-payment-intent",  async (req, res) => {
+      const { price } = req.body;
+      if(price){
+        const amount= parseFloat(price) * 100;
+        // Create a PaymentIntent with the order amount and currency
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: "usd",
+        payment_method_types:['card'],
+      });
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      });
+      }
+    
+      
+    });
+
+
+    // saved booking info into database
+    app.post('/paymentBookings', async(req,res)=>{
+      const booking = req.body;
+      // console.log(room);
+      const result = await paymentBookingCollection.insertOne(booking);
       res.send(result)
     })
 
