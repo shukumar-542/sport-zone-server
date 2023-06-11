@@ -66,6 +66,26 @@ async function run() {
       })
       res.send({ token })
     })
+// verify admin
+    const verifyAdmin =async(req,res,next)=>{
+      const email = req.decoded.email
+      const query = {email : email}
+      const result = await userCollection.findOne(query);
+      if(result?.role !== 'admin'){
+        return res.status(403).send({error : true, message : 'unauthorized access'})
+      }
+      next()
+    }
+    // verify instructor
+    const verifyInstructor = async(req,res,next) => {
+      const email = req.decoded.email;
+      const query = {email : email}
+      const result = await userCollection.findOne(query);
+      if(result?.role !== 'instructor'){
+        return res.status(403).send({error : true, message : 'unauthorized access'})
+      }
+      next()
+    }
 
     // saved user email and role in database
     app.put('/users/:email', async (req, res) => {
@@ -88,10 +108,14 @@ async function run() {
       res.send(result)
     })
     //get  booking collection by email 
-    app.get('/booking', async (req, res) => {
+    app.get('/booking',verifyJwt, async (req, res) => {
       const email = req.query.email;
       if (!email) {
         res.send([])
+      }
+      const decodedEmail = req.decoded.email;
+      if(decodedEmail !== email){
+        return res.status(403).res.send({error : true, message : 'forbidden access'})
       }
       const query = { email: email }
       const result = await bookedClassCollection.find(query).toArray()
@@ -109,12 +133,12 @@ async function run() {
     app.get('/payment/:email', async (req, res) => {
       const email = req.params.email;
       const query = { email: email };
-      const result = await paymentBookingCollection.find(query).toArray();
+      const result = await paymentBookingCollection.find(query).sort({data : -1}).toArray();
       res.send(result)
     })
 
     // get all Users 
-    app.get('/users', async (req, res) => {
+    app.get('/users',verifyJwt, verifyAdmin, async (req, res) => {
       const result = await userCollection.find().toArray()
       res.send(result)
     })
@@ -138,9 +162,12 @@ async function run() {
     })
 
     // check admin
-    app.get('/users/admin/:email', async (req, res) => {
+    app.get('/users/admin/:email', verifyJwt, async (req, res) => {
       const email = req.params.email;
       const query = { email: email };
+      if(req.decoded.email !== email){
+        res.send({admin : false})
+      }
       const user = await userCollection.findOne(query);
       const result = { admin: user?.role === "admin" }
       res.send(result)
@@ -169,6 +196,7 @@ async function run() {
       res.send(result)
     })
 
+    // deny added class
     app.patch('/classes/deny/:id', async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
@@ -182,6 +210,7 @@ async function run() {
     app.patch('/classes/feedback/:id', async (req, res) => {
       const id = req.params.id;
       const feedback = req.body
+      console.log(id, feedback);
       const query = { _id: new ObjectId(id) };
       const updateDoc = {
         $set: {
@@ -194,9 +223,8 @@ async function run() {
     })
 
     // post all register classes
-    app.post('/add-class', async (req, res) => {
+    app.post('/add-class',verifyJwt,verifyInstructor, async (req, res) => {
       const classData = req.body;
-      console.log(classData);
       const result = await classCollection.insertOne(classData)
       res.send(result)
     })
@@ -210,6 +238,49 @@ async function run() {
       const email = req.params.email;
       const query = { email: email };
       const result = await classCollection.find(query).toArray()
+      res.send(result)
+    })
+
+    app.get('/order-stat', async(req,res)=>{
+      const pipeline = [
+        // {
+        //   $lookup : {
+        //     from : 'allClass',
+        //     localField : 'classId',
+        //     foreignField : '_id',
+        //     as : 'classSeats'
+        //   }
+        // },
+        // {
+        //   $unwind : '$classSeats'
+        // },
+        // {
+        //   $group : {
+        //     _id : '$classSeats.seat',
+        //     count: { $sum: 1 },
+        //     total: { $sum: '$classSeats.seat' }
+        //   }
+        // }
+        {
+          $lookup: {
+            from: 'allClass',
+            localField: '_id',
+            foreignField: 'classId',
+            as: 'classDetails'
+          }
+        },
+        {
+          $unwind: '$classDetails'
+        },
+        {
+          $group: {
+            _id: '$classId',
+            totalSeats: { $sum:1}
+          }
+        }
+      ]
+      
+      const result = await paymentBookingCollection.aggregate(pipeline).toArray()
       res.send(result)
     })
 
@@ -237,14 +308,12 @@ async function run() {
     // saved booking info into database
     app.post('/paymentBookings', async (req, res) => {
       const booking = req.body;
-      // console.log(booking);
       const result = await paymentBookingCollection.insertOne(booking);
       const query = { _id: new ObjectId(booking._id) }
       const reduceQuery = { _id: new ObjectId(booking.classId) }
       const deleteResult = await bookedClassCollection.deleteOne(query)
       const reduceSeat = await classCollection.findOne(reduceQuery);
       const newSeat = reduceSeat.seat - 1;
-      // console.log(newSeat);
       const updateClassSeat = {
         $set: { seat: newSeat }
       }
