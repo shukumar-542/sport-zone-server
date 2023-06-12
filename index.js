@@ -51,7 +51,7 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
 
     const userCollection = client.db('sportZone').collection('users');
     const classCollection = client.db('sportZone').collection('allClass');
@@ -108,7 +108,7 @@ async function run() {
       res.send(result)
     })
     //get  booking collection by email 
-    app.get('/booking',verifyJwt, async (req, res) => {
+    app.get('/booking', async (req, res) => {
       const email = req.query.email;
       if (!email) {
         res.send([])
@@ -204,7 +204,7 @@ async function run() {
     })
 
     // deny added class
-    app.patch('/classes/deny/:id', async (req, res) => {
+    app.patch('/classes/deny/:id',verifyJwt, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const updateDoc = {
@@ -229,6 +229,19 @@ async function run() {
 
     })
 
+     // verify , email same , check admin
+     app.get('/users/admin/:email',verifyJwt, async(req,res)=>{
+      const email = req.params.email;
+      const query = {email :email} 
+      // console.log(req.decode, email);
+      if(req.decode.data !== email) {
+        res.send({admin : false})
+      }
+      const user = await userCollection.findOne(query)
+      const result= {admin : user?.role === 'admin'}
+      res.send(result)
+    })
+
     // post all register classes
     app.post('/add-class',verifyJwt,verifyInstructor, async (req, res) => {
       const classData = req.body;
@@ -240,8 +253,13 @@ async function run() {
       const result = await classCollection.find().toArray()
       res.send(result)
     })
+    // get all approved classes
+    app.get('/approved/class', async(req,res)=>{
+      const result = await classCollection.find({status : 'approved'}).toArray()
+      res.send(result)
+    })
     // show instructor class
-    app.get('/classes/:email', async (req, res) => {
+    app.get('/classes/:email',verifyJwt, async (req, res) => {
       const email = req.params.email;
       const query = { email: email };
       const result = await classCollection.find(query).toArray()
@@ -270,49 +288,7 @@ async function run() {
 
     })
 
-    app.get('/order-stat', async(req,res)=>{
-      const pipeline = [
-        // {
-        //   $lookup : {
-        //     from : 'allClass',
-        //     localField : 'classId',
-        //     foreignField : '_id',
-        //     as : 'classSeats'
-        //   }
-        // },
-        // {
-        //   $unwind : '$classSeats'
-        // },
-        // {
-        //   $group : {
-        //     _id : '$classSeats.seat',
-        //     count: { $sum: 1 },
-        //     total: { $sum: '$classSeats.seat' }
-        //   }
-        // }
-        {
-          $lookup: {
-            from: 'allClass',
-            localField: '_id',
-            foreignField: 'classId',
-            as: 'classDetails'
-          }
-        },
-        {
-          $unwind: '$classDetails'
-        },
-        {
-          $group: {
-            _id: '$classId',
-            totalSeats: { $sum:1}
-          }
-        }
-      ]
-      
-      const result = await paymentBookingCollection.aggregate(pipeline).toArray()
-      res.send(result)
-    })
-
+   
 
     // create payment intent
     app.post("/create-payment-intent", async (req, res) => {
@@ -357,7 +333,7 @@ async function run() {
 
 
     // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
+    // await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
     // Ensures that the client will close when you finish/error
