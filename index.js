@@ -115,7 +115,7 @@ async function run() {
       }
       const decodedEmail = req.decoded.email;
       if(decodedEmail !== email){
-        return res.status(403).res.send({error : true, message : 'forbidden access'})
+        return res.status(403).send({error : true, message : 'forbidden access'})
       }
       const query = { email: email }
       const result = await bookedClassCollection.find(query).toArray()
@@ -130,7 +130,7 @@ async function run() {
     })
 
     // get all payment class by email
-    app.get('/payment/:email', async (req, res) => {
+    app.get('/payment/:email',verifyJwt, async (req, res) => {
       const email = req.params.email;
       const query = { email: email };
       const result = await paymentBookingCollection.find(query).sort({data : -1}).toArray();
@@ -196,6 +196,13 @@ async function run() {
       res.send(result)
     })
 
+    // get all instructor
+    app.get('/instructor',async(req,res)=>{
+      const result = await userCollection.find({role : 'instructor'}).toArray();
+      res.send(result);
+      
+    })
+
     // deny added class
     app.patch('/classes/deny/:id', async (req, res) => {
       const id = req.params.id;
@@ -239,6 +246,28 @@ async function run() {
       const query = { email: email };
       const result = await classCollection.find(query).toArray()
       res.send(result)
+    })
+
+    // update instructor class
+    app.get('/class/:id',async(req,res)=>{
+      const id = req.params.id;
+      const query = {_id :  new ObjectId(id)}
+      const result = await classCollection.findOne(query)
+      res.send(result)
+    })
+
+    app.patch('/update/:id', async(req,res)=>{
+      const id = req.params.id;
+      const query = {_id : new ObjectId(id)}
+      const updateClass = req.body;
+      const  newUpdate= {
+        $set : {
+          ...updateClass
+        }
+      }
+      const result = await classCollection.updateOne(query,newUpdate)
+      res.send(result)
+
     })
 
     app.get('/order-stat', async(req,res)=>{
@@ -314,8 +343,12 @@ async function run() {
       const deleteResult = await bookedClassCollection.deleteOne(query)
       const reduceSeat = await classCollection.findOne(reduceQuery);
       const newSeat = reduceSeat.seat - 1;
+      const newStudent = reduceSeat.totalStudent +  1;
       const updateClassSeat = {
-        $set: { seat: newSeat }
+        $set: { 
+          seat: newSeat,
+          totalStudent : newStudent 
+        }
       }
       const availableSeat = await classCollection.updateOne(reduceQuery,updateClassSeat)
       res.send({ result, deleteResult ,availableSeat })
