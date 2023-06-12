@@ -60,6 +60,7 @@ async function run() {
 
 
     app.post('/jwt', (req, res) => {
+      console.log(req.body);
       const user = req.body;
       const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
         expiresIn: '1h'
@@ -108,7 +109,7 @@ async function run() {
       res.send(result)
     })
     //get  booking collection by email 
-    app.get('/booking', async (req, res) => {
+    app.get('/booking',verifyJwt, async (req, res) => {
       const email = req.query.email;
       if (!email) {
         res.send([])
@@ -138,7 +139,7 @@ async function run() {
     })
 
     // get all Users 
-    app.get('/users',verifyJwt, verifyAdmin, async (req, res) => {
+    app.get('/users',verifyJwt,verifyAdmin, async (req, res) => {
       const result = await userCollection.find().toArray()
       res.send(result)
     })
@@ -229,18 +230,7 @@ async function run() {
 
     })
 
-     // verify , email same , check admin
-     app.get('/users/admin/:email',verifyJwt, async(req,res)=>{
-      const email = req.params.email;
-      const query = {email :email} 
-      // console.log(req.decode, email);
-      if(req.decode.data !== email) {
-        res.send({admin : false})
-      }
-      const user = await userCollection.findOne(query)
-      const result= {admin : user?.role === 'admin'}
-      res.send(result)
-    })
+   
 
     // post all register classes
     app.post('/add-class',verifyJwt,verifyInstructor, async (req, res) => {
@@ -249,7 +239,11 @@ async function run() {
       res.send(result)
     })
     // get all classed
-    app.get('/classes', async (req, res) => {
+    app.get('/classes',verifyJwt, verifyAdmin, async (req, res) => {
+      const result = await classCollection.find().toArray()
+      res.send(result)
+    })
+    app.get('/popular/classes', async (req, res) => {
       const result = await classCollection.find().toArray()
       res.send(result)
     })
@@ -259,7 +253,7 @@ async function run() {
       res.send(result)
     })
     // show instructor class
-    app.get('/classes/:email',verifyJwt, async (req, res) => {
+    app.get('/classes/:email', async (req, res) => {
       const email = req.params.email;
       const query = { email: email };
       const result = await classCollection.find(query).toArray()
